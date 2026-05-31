@@ -1,0 +1,32 @@
+# LLM-Forge SFT (Supervised Fine-Tuning) Configuration
+
+model:
+  base_model: "./outputs/pretrain/best_model"
+  use_lora: true
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  lora_target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+training:
+  output_dir: "./outputs/sft"
+  num_epochs: 3
+  batch_size: 8
+  gradient_accumulation_steps: 8
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  warmup_steps: 500
+  lr_scheduler: "cosine"
+  fp16: true
+  save_steps: 500
+  log_steps: 50
+  eval_steps: 250
+
+data:
+  train_file: "./data/sft/train.jsonl"
+  eval_file: "./data/sft/eval.jsonl"
+  max_length: 2048
+  instruction_key: "instruction"
+  input_key: "input"
+  output_key: "output"

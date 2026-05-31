@@ -1,0 +1,33 @@
+# LLM-Forge DPO (Direct Preference Optimization) Configuration
+
+model:
+  sft_model: "./outputs/sft/best_model"
+  use_lora: true
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+
+training:
+  output_dir: "./outputs/dpo"
+  num_epochs: 2
+  batch_size: 4
+  gradient_accumulation_steps: 16
+  learning_rate: 5.0e-7
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  warmup_steps: 100
+  lr_scheduler: "cosine"
+  fp16: true
+  beta: 0.1
+  loss_type: "sigmoid"
+  save_steps: 200
+  log_steps: 20
+  eval_steps: 100
+
+data:
+  train_file: "./data/dpo/train.jsonl"
+  eval_file: "./data/dpo/eval.jsonl"
+  max_length: 2048
+  prompt_key: "prompt"
+  chosen_key: "chosen"
+  rejected_key: "rejected"

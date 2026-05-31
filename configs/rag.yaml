@@ -1,0 +1,31 @@
+# LLM-Forge RAG Configuration
+
+embedder:
+  model_name: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+  device: "cuda"
+  batch_size: 32
+
+vector_store:
+  index_type: "flat"  # flat, ivf, hnsw
+  dimension: 384
+  nlist: 100  # for IVF
+  ef_search: 64  # for HNSW
+  store_path: "./data/faiss_store"
+
+text_splitter:
+  chunk_size: 512
+  chunk_overlap: 64
+  separators: ["\n\n", "\n", "。", "！", "？", "；", "，", " "]
+
+retriever:
+  top_k: 5
+  similarity_threshold: 0.5
+  use_mmr: true
+  mmr_lambda: 0.5
+
+generator:
+  model_path: "./outputs/sft/best_model"
+  max_new_tokens: 512
+  temperature: 0.7
+  top_p: 0.9
+  system_prompt: "你是一个有帮助的AI助手。请根据提供的参考资料回答问题。如果参考资料中没有相关信息，请说明你不确定。"

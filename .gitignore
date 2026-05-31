@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+llm-forge-env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data and Models
+data/
+models/
+checkpoints/
+outputs/
+logs/
+runs/
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.pkl
+*.pickle
+
+# FAISS indices
+*.index
+faiss_store/
+
+# Tokenizer
+*.model
+*.vocab
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+wandb/
+tensorboard/
+
+# Env
+.env
+*.env
+
+# Conda
+conda-env/
