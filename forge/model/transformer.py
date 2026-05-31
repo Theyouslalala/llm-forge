@@ -77,10 +77,10 @@ class GPTModel(nn.Module):
         self.norm = RMSNorm(config.d_model)
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
 
+        self._init_weights()
+
         if config.tie_weights:
             self.lm_head.weight = self.token_embedding.embedding.weight
-
-        self._init_weights()
 
     def _init_weights(self):
         for module in self.modules():
@@ -140,6 +140,8 @@ class GPTModel(nn.Module):
         eos_token_id: int = 3,
     ) -> torch.Tensor:
         self.eval()
+        if temperature < 0:
+            raise ValueError(f"temperature must be non-negative, got {temperature}")
         generated = input_ids
         past_key_values = None
 
@@ -163,7 +165,8 @@ class GPTModel(nn.Module):
                     cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
                     mask = cumulative_probs - sorted_probs > top_p
                     sorted_probs[mask] = 0.0
-                    sorted_probs /= sorted_probs.sum(dim=-1, keepdim=True)
+                    prob_sum = sorted_probs.sum(dim=-1, keepdim=True)
+                    sorted_probs /= prob_sum.clamp(min=1e-8)
                     next_token = torch.multinomial(sorted_probs, 1)
                     next_token = sorted_indices.gather(-1, next_token)
                 else:

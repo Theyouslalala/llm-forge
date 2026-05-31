@@ -1,3 +1,4 @@
+import math
 import os
 from pathlib import Path
 
@@ -69,7 +70,7 @@ def pretrain(config_path: str = "configs/pretrain.yaml"):
         betas=(0.9, 0.95),
     )
 
-    total_steps = len(train_loader) * train_cfg["num_epochs"] // train_cfg["gradient_accumulation_steps"]
+    total_steps = math.ceil(len(train_loader) * train_cfg["num_epochs"] / train_cfg["gradient_accumulation_steps"])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=total_steps, eta_min=train_cfg["learning_rate"] * 0.1
     )

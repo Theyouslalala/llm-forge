@@ -40,10 +40,10 @@ class Trainer:
         self.save_steps = save_steps
         self.eval_steps = eval_steps
 
-        self.scaler = torch.amp.GradScaler("cuda", enabled=fp16)
+        self.device_type = "cuda" if "cuda" in device else "cpu"
+        self.scaler = torch.amp.GradScaler(self.device_type, enabled=fp16 and self.device_type == "cuda")
         self.ckpt_manager = CheckpointManager(output_dir, max_keep=max_keep)
         self.global_step = 0
-        self._step_counter = 0
         self.best_eval_loss = float("inf")
 
     def train(
@@ -73,39 +73,36 @@ class Trainer:
                 epoch_loss += loss
                 epoch_steps += 1
 
-                if (step + 1) % self.gradient_accumulation_steps == 0:
-                    self.global_step += 1
+                if self.global_step % self.log_steps == 0 and self.global_step > 0:
+                    avg_loss = epoch_loss / epoch_steps
+                    lr = self.optimizer.param_groups[0]["lr"]
+                    elapsed = time.time() - start_time
+                    logger.info(
+                        f"Epoch {epoch+1}/{num_epochs} | Step {self.global_step} | "
+                        f"Loss: {loss:.4f} | Avg Loss: {avg_loss:.4f} | "
+                        f"LR: {lr:.2e} | Time: {elapsed:.1f}s"
+                    )
+                    history["train_loss"].append(avg_loss)
+                    history["lr"].append(lr)
 
-                    if self.global_step % self.log_steps == 0:
-                        avg_loss = epoch_loss / epoch_steps
-                        lr = self.optimizer.param_groups[0]["lr"]
-                        elapsed = time.time() - start_time
-                        logger.info(
-                            f"Epoch {epoch+1}/{num_epochs} | Step {self.global_step} | "
-                            f"Loss: {loss:.4f} | Avg Loss: {avg_loss:.4f} | "
-                            f"LR: {lr:.2e} | Time: {elapsed:.1f}s"
-                        )
-                        history["train_loss"].append(avg_loss)
-                        history["lr"].append(lr)
-
-                    if eval_dataloader and self.global_step % self.eval_steps == 0:
-                        eval_loss = self.evaluate(eval_dataloader)
-                        history["eval_loss"].append(eval_loss)
-                        logger.info(f"Eval Loss: {eval_loss:.4f}")
-                        if eval_loss < self.best_eval_loss:
-                            self.best_eval_loss = eval_loss
-                            self.ckpt_manager.save(
-                                self.model, self.optimizer, self.scheduler,
-                                self.global_step, epoch, eval_loss,
-                                {"best": True},
-                            )
-                        self.model.train()
-
-                    if self.global_step % self.save_steps == 0:
+                if eval_dataloader and self.global_step % self.eval_steps == 0:
+                    eval_loss = self.evaluate(eval_dataloader)
+                    history["eval_loss"].append(eval_loss)
+                    logger.info(f"Eval Loss: {eval_loss:.4f}")
+                    if eval_loss < self.best_eval_loss:
+                        self.best_eval_loss = eval_loss
                         self.ckpt_manager.save(
                             self.model, self.optimizer, self.scheduler,
-                            self.global_step, epoch, loss,
+                            self.global_step, epoch, eval_loss,
+                            {"best": True},
                         )
+                    self.model.train()
+
+                if self.global_step % self.save_steps == 0:
+                    self.ckpt_manager.save(
+                        self.model, self.optimizer, self.scheduler,
+                        self.global_step, epoch, loss,
+                    )
 
             avg_epoch_loss = epoch_loss / max(epoch_steps, 1)
             logger.info(f"Epoch {epoch+1} completed. Average loss: {avg_epoch_loss:.4f}")
@@ -113,16 +110,16 @@ class Trainer:
         return history
 
     def _train_step(self, batch: dict) -> float:
-        with torch.amp.autocast("cuda", enabled=self.fp16):
+        with torch.amp.autocast(self.device_type, enabled=self.fp16):
             outputs = self.model(**batch)
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs
             loss = loss / self.gradient_accumulation_steps
 
         self.scaler.scale(loss).backward()
 
-        self._step_counter += 1
+        self.global_step += 1
 
-        if self._step_counter % self.gradient_accumulation_steps == 0:
+        if self.global_step % self.gradient_accumulation_steps == 0:
             self.scaler.unscale_(self.optimizer)
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
             self.scaler.step(self.optimizer)
@@ -141,7 +138,7 @@ class Trainer:
 
         for batch in dataloader:
             batch = {k: v.to(self.device) for k, v in batch.items()}
-            with torch.amp.autocast("cuda", enabled=self.fp16):
+            with torch.amp.autocast(self.device_type, enabled=self.fp16):
                 outputs = self.model(**batch)
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs
             total_loss += loss.item()

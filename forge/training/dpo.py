@@ -1,3 +1,4 @@
+import math
 import os
 from typing import Optional
 
@@ -31,7 +32,7 @@ class DPOTrainer(Trainer):
         rejected_ids = batch["rejected_input_ids"].to(self.device)
         rejected_mask = batch["rejected_attention_mask"].to(self.device)
 
-        with torch.amp.autocast("cuda", enabled=self.fp16):
+        with torch.amp.autocast(self.device_type, enabled=self.fp16):
             chosen_outputs = self.model(input_ids=chosen_ids, attention_mask=chosen_mask, labels=chosen_ids)
             rejected_outputs = self.model(input_ids=rejected_ids, attention_mask=rejected_mask, labels=rejected_ids)
 
@@ -50,8 +51,8 @@ class DPOTrainer(Trainer):
 
         self.scaler.scale(loss).backward()
 
-        self._step_counter += 1
-        if self._step_counter % self.gradient_accumulation_steps == 0:
+        self.global_step += 1
+        if self.global_step % self.gradient_accumulation_steps == 0:
             self.scaler.unscale_(self.optimizer)
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
             self.scaler.step(self.optimizer)
@@ -88,10 +89,11 @@ def dpo_train(config_path: str = "configs/dpo.yaml"):
         tokenizer_path = "./outputs/tokenizer/tokenizer.json"
     tokenizer = BPETokenizer.load(tokenizer_path)
 
-    model = GPTModel(GPTConfig())
+    gpt_config = GPTConfig.from_dict(model_cfg)
+    model = GPTModel(gpt_config)
     model_path = os.path.join(sft_model_path, "model.pt")
     if os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path, map_location="cpu"))
+        model.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=True))
         logger.info(f"Loaded SFT model from {model_path}")
 
     if model_cfg.get("use_lora", False):
@@ -99,6 +101,7 @@ def dpo_train(config_path: str = "configs/dpo.yaml"):
             rank=model_cfg["lora_rank"],
             alpha=model_cfg["lora_alpha"],
             dropout=model_cfg.get("lora_dropout", 0.0),
+            target_modules=model_cfg.get("lora_target_modules", ["q_proj", "k_proj", "v_proj", "o_proj"]),
         )
         model = apply_lora_to_model(model, lora_config)
         for param in model.parameters():
@@ -119,8 +122,10 @@ def dpo_train(config_path: str = "configs/dpo.yaml"):
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(trainable_params, lr=train_cfg["learning_rate"], weight_decay=train_cfg["weight_decay"])
 
-    total_steps = len(train_loader) * train_cfg["num_epochs"] // train_cfg["gradient_accumulation_steps"]
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps)
+    total_steps = math.ceil(len(train_loader) * train_cfg["num_epochs"] / train_cfg["gradient_accumulation_steps"])
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=total_steps, eta_min=train_cfg["learning_rate"] * 0.1
+    )
 
     trainer = DPOTrainer(
         beta=train_cfg["beta"],

@@ -18,10 +18,11 @@ def setup_distributed(backend: str = "nccl") -> tuple[int, int, int]:
 
     rank = int(os.environ["RANK"])
     local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    world_size = int(os.environ["WORLD_SIZE"])
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
 
     dist.init_process_group(backend=backend)
-    torch.cuda.set_device(local_rank)
+    if torch.cuda.is_available():
+        torch.cuda.set_device(local_rank)
 
     logger.info(f"Distributed: rank={rank}, local_rank={local_rank}, world_size={world_size}")
     return rank, world_size, local_rank

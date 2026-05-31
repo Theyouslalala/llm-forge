@@ -62,15 +62,15 @@ class CheckpointManager:
     ) -> dict:
         ckpt_dir = Path(checkpoint_path)
         model.load_state_dict(
-            torch.load(ckpt_dir / "model.pt", map_location=device)
+            torch.load(ckpt_dir / "model.pt", map_location=device, weights_only=True)
         )
         if optimizer is not None and (ckpt_dir / "optimizer.pt").exists():
             optimizer.load_state_dict(
-                torch.load(ckpt_dir / "optimizer.pt", map_location=device)
+                torch.load(ckpt_dir / "optimizer.pt", map_location=device, weights_only=False)
             )
         if scheduler is not None and (ckpt_dir / "scheduler.pt").exists():
             scheduler.load_state_dict(
-                torch.load(ckpt_dir / "scheduler.pt", map_location=device)
+                torch.load(ckpt_dir / "scheduler.pt", map_location=device, weights_only=False)
             )
 
         meta_path = ckpt_dir / "meta.json"
@@ -83,6 +83,11 @@ class CheckpointManager:
         return meta
 
     def get_latest(self) -> Optional[str]:
-        if not self.checkpoints:
-            return None
-        return self.checkpoints[-1]
+        """Get the latest checkpoint path, scanning disk if in-memory list is empty."""
+        if self.checkpoints:
+            return self.checkpoints[-1]
+        # Scan disk for checkpoint directories
+        ckpt_dirs = sorted(self.output_dir.glob("checkpoint-*"), key=lambda p: p.name)
+        if ckpt_dirs:
+            return str(ckpt_dirs[-1])
+        return None

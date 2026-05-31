@@ -35,8 +35,9 @@ class VectorStore:
             elif self.index_type == "ivf":
                 quantizer = faiss.IndexFlatIP(self.dimension)
                 self.index = faiss.IndexIVFFlat(quantizer, self.dimension, 100)
+                self._ivf_trained = False
             elif self.index_type == "hnsw":
-                self.index = faiss.IndexHNSWFlat(self.dimension, 32)
+                self.index = faiss.IndexHNSWFlat(self.dimension, 32, faiss.METRIC_INNER_PRODUCT)
             else:
                 self.index = faiss.IndexFlatIP(self.dimension)
             logger.info(f"Initialized FAISS index: {self.index_type}, dim={self.dimension}")
@@ -52,6 +53,9 @@ class VectorStore:
             import faiss
             embeddings = embeddings.astype("float32")
             faiss.normalize_L2(embeddings)
+            if self.index_type == "ivf" and not getattr(self, "_ivf_trained", True):
+                self.index.train(embeddings)
+                self._ivf_trained = True
             self.index.add(embeddings)
         else:
             norms = np.linalg.norm(embeddings, axis=1, keepdims=True)

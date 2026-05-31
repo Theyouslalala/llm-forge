@@ -127,14 +127,14 @@ class TestTokenEmbedding:
 
 class TestRotaryPositionalEmbedding:
     def test_output_shapes(self):
-        rope = RotaryPositionalEmbedding(d_model=32, max_seq_len=64)
+        rope = RotaryPositionalEmbedding(head_dim=32, max_seq_len=64)
         dummy = torch.zeros(1, 1, 32)
         cos, sin = rope(dummy, seq_len=10)
         assert cos.shape == (10, 32)
         assert sin.shape == (10, 32)
 
     def test_values_bounded(self):
-        rope = RotaryPositionalEmbedding(d_model=64, max_seq_len=32)
+        rope = RotaryPositionalEmbedding(head_dim=64, max_seq_len=32)
         dummy = torch.zeros(1, 1, 64)
         cos, sin = rope(dummy, seq_len=32)
         assert cos.abs().max() <= 1.0 + 1e-5

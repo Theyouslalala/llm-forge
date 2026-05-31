@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import List, Optional
 
 import torch
 import torch.nn as nn
@@ -12,7 +12,7 @@ class LoRAConfig:
     rank: int = 16
     alpha: float = 32.0
     dropout: float = 0.0
-    target_modules: list[str] = field(
+    target_modules: List[str] = field(
         default_factory=lambda: ["q_proj", "k_proj", "v_proj", "o_proj"]
     )
 
@@ -44,6 +44,7 @@ class LoRALinear(nn.Module):
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
 
         self.lora_dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
+        self._merged = False
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         base_out = self.linear(x)
@@ -51,10 +52,16 @@ class LoRALinear(nn.Module):
         return base_out + lora_out * self.scaling
 
     def merge(self):
+        if self._merged:
+            raise RuntimeError("LoRA weights already merged")
         self.linear.weight.data += (self.lora_B @ self.lora_A) * self.scaling
+        self._merged = True
 
     def unmerge(self):
+        if not self._merged:
+            raise RuntimeError("LoRA weights not merged, cannot unmerge")
         self.linear.weight.data -= (self.lora_B @ self.lora_A) * self.scaling
+        self._merged = False
 
 
 def apply_lora_to_model(model: nn.Module, config: LoRAConfig) -> nn.Module:

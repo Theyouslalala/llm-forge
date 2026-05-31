@@ -11,8 +11,8 @@ def compute_perplexity(loss: float) -> float:
 
 
 def compute_bleu(reference: str, hypothesis: str, max_n: int = 4) -> float:
-    ref_tokens = list(reference)
-    hyp_tokens = list(hypothesis)
+    ref_tokens = reference.split()
+    hyp_tokens = hypothesis.split()
 
     if not hyp_tokens:
         return 0.0
@@ -44,8 +44,8 @@ def _get_ngrams(tokens: list[str], n: int) -> Counter:
 
 
 def compute_rouge_l(reference: str, hypothesis: str) -> dict:
-    ref_tokens = list(reference)
-    hyp_tokens = list(hypothesis)
+    ref_tokens = reference.split()
+    hyp_tokens = hypothesis.split()
 
     lcs_len = _lcs_length(ref_tokens, hyp_tokens)
 
@@ -85,9 +85,15 @@ def compute_exact_match(reference: str, hypothesis: str) -> bool:
     return reference.strip().lower() == hypothesis.strip().lower()
 
 
+def _normalize_text(text: str) -> list[str]:
+    """Normalize text for F1: lowercase and strip punctuation."""
+    import string
+    return [w.strip(string.punctuation).lower() for w in text.split() if w.strip(string.punctuation)]
+
+
 def compute_f1(reference: str, hypothesis: str) -> float:
-    ref_tokens = set(reference.split())
-    hyp_tokens = set(hypothesis.split())
+    ref_tokens = set(_normalize_text(reference))
+    hyp_tokens = set(_normalize_text(hypothesis))
 
     if not ref_tokens or not hyp_tokens:
         return 0.0

@@ -24,8 +24,13 @@ class MultimodalBenchmark:
 
         from ..harness import EvalHarness
         harness = EvalHarness()
+        # Inject images into each data item for multimodal evaluation
+        eval_data = []
+        for item in self.data:
+            eval_item = {**item, "images": images}
+            eval_data.append(eval_item)
         results = harness.evaluate_generation(
-            model, tokenizer, self.data,
+            model, tokenizer, eval_data,
             task_name="multimodal_benchmark",
             device=device,
         )

@@ -93,24 +93,42 @@ class RAGPipeline:
 回答："""
         return prompt
 
-    def _generate(self, prompt: str) -> str:
+    def _load_generator(self):
+        """Load and cache the generator model and tokenizer."""
+        if self._generator is not None:
+            return self._generator
+
         gen_config = self.config["generator"]
         model_path = gen_config["model_path"]
 
         if not os.path.exists(model_path):
+            return None
+
+        from ..model.transformer import GPTModel, GPTConfig
+        from ..tokenizer.bpe_tokenizer import BPETokenizer
+
+        tokenizer = BPETokenizer.load(os.path.join(model_path, "tokenizer.json"))
+        model = GPTModel(GPTConfig())
+        model.load_state_dict(torch.load(os.path.join(model_path, "model.pt"), map_location="cpu", weights_only=True))
+        model.eval()
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = model.to(device)
+
+        self._generator = {"model": model, "tokenizer": tokenizer, "device": device, "config": gen_config}
+        return self._generator
+
+    def _generate(self, prompt: str) -> str:
+        gen = self._load_generator()
+        if gen is None:
+            model_path = self.config["generator"]["model_path"]
             return f"[模型未找到: {model_path}] 请先完成模型训练。基于检索到的上下文，以下是相关信息：\n{prompt[:500]}"
 
         try:
-            from ..model.transformer import GPTModel, GPTConfig
-            from ..tokenizer.bpe_tokenizer import BPETokenizer
-
-            tokenizer = BPETokenizer.load(os.path.join(model_path, "tokenizer.json"))
-            model = GPTModel(GPTConfig())
-            model.load_state_dict(torch.load(os.path.join(model_path, "model.pt"), map_location="cpu"))
-            model.eval()
-
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            model = model.to(device)
+            model = gen["model"]
+            tokenizer = gen["tokenizer"]
+            device = gen["device"]
+            gen_config = gen["config"]
 
             input_ids = tokenizer.encode(prompt, add_special=True)
             input_tensor = torch.tensor([input_ids], device=device)

@@ -38,17 +38,20 @@ class Embedder:
         return self.embed([query])[0]
 
     def _fallback_embed(self, texts: list[str]) -> np.ndarray:
-        import hashlib
+        """TF-IDF-like fallback embedding using character n-gram hashing."""
         dim = 384
         embeddings = []
         for text in texts:
-            h = hashlib.md5(text.encode()).hexdigest()
-            vec = np.array([int(h[i:i+2], 16) / 255.0 for i in range(0, min(len(h), dim*2), 2)])
-            if len(vec) < dim:
-                vec = np.pad(vec, (0, dim - len(vec)))
-            else:
-                vec = vec[:dim]
-            vec = vec / (np.linalg.norm(vec) + 1e-8)
+            vec = np.zeros(dim, dtype=np.float32)
+            # Character trigram hashing for basic semantic signal
+            text_lower = text.lower().strip()
+            for i in range(len(text_lower) - 2):
+                trigram = text_lower[i:i+3]
+                h = hash(trigram) % dim
+                vec[h] += 1.0
+            norm = np.linalg.norm(vec)
+            if norm > 0:
+                vec /= norm
             embeddings.append(vec)
         return np.array(embeddings, dtype=np.float32)
 

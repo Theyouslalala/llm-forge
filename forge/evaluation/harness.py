@@ -51,8 +51,7 @@ class EvalHarness:
                 output_ids = model.generate(
                     input_tensor,
                     max_new_tokens=max_new_tokens,
-                    temperature=0.7,
-                    top_p=0.9,
+                    temperature=0.0,
                     eos_token_id=tokenizer.eos_token_id,
                 )
             latency = time.time() - start_time

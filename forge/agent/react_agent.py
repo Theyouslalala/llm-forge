@@ -76,6 +76,9 @@ Final Answer: 最终答案
                 action_name, action_input = action_info
                 if action_name in self.tools:
                     observation = self.tools[action_name].run(action_input)
+                    # Truncate observation to prevent context overflow
+                    if len(observation) > 2000:
+                        observation = observation[:2000] + "\n... [输出已截断]"
                     conversation += f"\nObservation: {observation}\n"
                     logger.info(f"Tool {action_name}: {observation[:100]}...")
                 else:

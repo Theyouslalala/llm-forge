@@ -18,8 +18,8 @@ class DocumentLoader:
 
     def _load_directory(self, dir_path: Path) -> list[dict]:
         documents = []
-        for file_path in dir_path.rglob("*"):
-            if file_path.suffix in (".txt", ".md", ".pdf"):
+        for suffix in ("*.txt", "*.md", "*.pdf"):
+            for file_path in dir_path.rglob(suffix):
                 try:
                     doc = self._load_file(file_path)
                     documents.append(doc)
@@ -37,8 +37,16 @@ class DocumentLoader:
             raise ValueError(f"Unsupported file format: {suffix}")
 
     def _load_text(self, file_path: Path) -> dict:
-        with open(file_path, encoding="utf-8") as f:
-            content = f.read()
+        for encoding in ("utf-8", "gbk", "latin-1"):
+            try:
+                with open(file_path, encoding=encoding) as f:
+                    content = f.read()
+                break
+            except UnicodeDecodeError:
+                continue
+        else:
+            with open(file_path, encoding="utf-8", errors="replace") as f:
+                content = f.read()
         return {
             "content": content,
             "source": str(file_path),
@@ -57,8 +65,7 @@ class DocumentLoader:
                     pages.append(text)
             content = "\n".join(pages)
         except ImportError:
-            logger.warning("PyPDF2 not installed, falling back to basic loader")
-            content = ""
+            raise ImportError("PyPDF2 is required to load PDF files. Install it with: pip install PyPDF2")
 
         return {
             "content": content,

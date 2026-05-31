@@ -26,6 +26,9 @@ class MultiHeadAttention(nn.Module):
         self.head_dim = d_model // n_heads
         self.n_rep = n_heads // self.n_kv_heads
 
+        assert d_model % n_heads == 0, f"d_model ({d_model}) must be divisible by n_heads ({n_heads})"
+        assert n_heads % self.n_kv_heads == 0, f"n_heads ({n_heads}) must be divisible by n_kv_heads ({self.n_kv_heads})"
+
         self.q_proj = nn.Linear(d_model, n_heads * self.head_dim, bias=False)
         self.k_proj = nn.Linear(d_model, self.n_kv_heads * self.head_dim, bias=False)
         self.v_proj = nn.Linear(d_model, self.n_kv_heads * self.head_dim, bias=False)
@@ -79,11 +82,11 @@ class MultiHeadAttention(nn.Module):
         k = self._repeat_kv(k)
         v = self._repeat_kv(v)
 
-        scale = math.sqrt(self.head_dim) if hasattr(self, "head_dim") else 1.0
+        scale = math.sqrt(self.head_dim)
         attn_weights = torch.matmul(q, k.transpose(-2, -1)) / scale
 
         kv_len = k.shape[2]
-        causal = self.causal_mask[:seq_len, :kv_len].to(dtype=attn_weights.dtype, device=attn_weights.device)
+        causal = self.causal_mask[kv_len - seq_len : kv_len, :kv_len].to(dtype=attn_weights.dtype, device=attn_weights.device)
         attn_weights = attn_weights + causal
 
         if attention_mask is not None:

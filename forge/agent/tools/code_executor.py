@@ -6,7 +6,7 @@ from ..base_agent import BaseTool
 
 
 class CodeExecutorTool(BaseTool):
-    """Execute Python code safely."""
+    """Execute Python code with restricted builtins."""
 
     @property
     def name(self) -> str:
@@ -32,7 +32,17 @@ class CodeExecutorTool(BaseTool):
                 code = code[:-3]
             code = code.strip()
 
-            exec_globals = {"__builtins__": __builtins__}
+            # Restricted builtins - no dangerous functions
+            safe_builtins = {
+                "print": print, "len": len, "range": range, "int": int,
+                "float": float, "str": str, "bool": bool, "list": list,
+                "dict": dict, "tuple": tuple, "set": set, "sorted": sorted,
+                "enumerate": enumerate, "zip": zip, "map": map, "filter": filter,
+                "sum": sum, "min": min, "max": max, "abs": abs, "round": round,
+                "isinstance": isinstance, "hasattr": hasattr, "getattr": getattr,
+                "type": type, "repr": repr, "any": any, "all": all,
+            }
+            exec_globals = {"__builtins__": safe_builtins}
             exec(code, exec_globals)
 
             stdout_output = sys.stdout.getvalue()

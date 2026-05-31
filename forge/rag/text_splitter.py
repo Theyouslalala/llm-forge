@@ -11,6 +11,8 @@ class TextSplitter:
         chunk_overlap: int = 64,
         separators: Optional[list[str]] = None,
     ):
+        if chunk_overlap >= chunk_size:
+            raise ValueError(f"chunk_overlap ({chunk_overlap}) must be less than chunk_size ({chunk_size})")
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.separators = separators or ["\n\n", "\n", "。", "！", "？", "；", "，", " "]
@@ -22,8 +24,8 @@ class TextSplitter:
         if len(text) <= self.chunk_size:
             return [text] if text.strip() else []
 
-        separator = separators[-1] if separators else ""
-        new_separators = separators[:-1] if separators else []
+        separator = separators[0] if separators else ""
+        new_separators = separators[1:] if separators else []
 
         if separator:
             splits = text.split(separator)
@@ -33,8 +35,8 @@ class TextSplitter:
         chunks = []
         current_chunk = ""
 
-        for split in splits:
-            piece = split + separator if separator else split
+        for i, split in enumerate(splits):
+            piece = split + separator if separator and i < len(splits) - 1 else split
             if len(current_chunk) + len(piece) <= self.chunk_size:
                 current_chunk += piece
             else:

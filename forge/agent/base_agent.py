@@ -59,7 +59,7 @@ class BaseAgent(ABC):
             self.tokenizer = BPETokenizer.load(os.path.join(model_path, "tokenizer.json"))
             self.model = GPTModel(GPTConfig())
             self.model.load_state_dict(
-                torch.load(os.path.join(model_path, "model.pt"), map_location="cpu")
+                torch.load(os.path.join(model_path, "model.pt"), map_location="cpu", weights_only=True)
             )
             self.model = self.model.to(self.device)
             self.model.eval()

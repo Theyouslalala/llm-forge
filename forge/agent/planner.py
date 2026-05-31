@@ -52,16 +52,21 @@ class Planner:
         results = []
 
         for step in steps:
-            action = step["action"]
-            tool_name = step.get("tool")
+            try:
+                action = step.get("action", "")
+                tool_name = step.get("tool")
 
-            if tool_name and tool_name in self.agent.tools:
-                result = self.agent.tools[tool_name].run(action)
-            else:
-                result = self.agent._generate(f"请执行以下任务: {action}\n回答:", max_new_tokens=256)
+                if tool_name and tool_name in self.agent.tools:
+                    result = self.agent.tools[tool_name].run(action)
+                else:
+                    result = self.agent._generate(f"请执行以下任务: {action}\n回答:", max_new_tokens=256)
 
-            results.append({"step": step["step"], "action": action, "result": result})
-            logger.info(f"Step {step['step']}: {action} -> {result[:100]}...")
+                result_str = str(result) if not isinstance(result, str) else result
+                results.append({"step": step.get("step", 0), "action": action, "result": result_str})
+                logger.info(f"Step {step.get('step', 0)}: {action} -> {result_str[:100]}...")
+            except Exception as e:
+                logger.warning(f"Step {step.get('step', 0)} failed: {e}")
+                results.append({"step": step.get("step", 0), "action": step.get("action", ""), "result": f"错误: {e}"})
 
         summary = "\n".join([f"步骤{r['step']}: {r['action']}\n结果: {r['result']}" for r in results])
         return summary

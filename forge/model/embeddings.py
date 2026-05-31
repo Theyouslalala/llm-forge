@@ -29,15 +29,15 @@ class TokenEmbedding(nn.Module):
 class RotaryPositionalEmbedding(nn.Module):
     """Rotary Position Embedding (RoPE)."""
 
-    def __init__(self, d_model: int, max_seq_len: int = 4096, theta: float = 10000.0):
+    def __init__(self, head_dim: int, max_seq_len: int = 4096, theta: float = 10000.0):
         super().__init__()
-        self.d_model = d_model
+        self.head_dim = head_dim
         self.theta = theta
         self._build_cache(max_seq_len)
 
     def _build_cache(self, max_seq_len: int):
         freqs = 1.0 / (
-            self.theta ** (torch.arange(0, self.d_model, 2).float() / self.d_model)
+            self.theta ** (torch.arange(0, self.head_dim, 2).float() / self.head_dim)
         )
         t = torch.arange(max_seq_len).float()
         freqs = torch.outer(t, freqs)

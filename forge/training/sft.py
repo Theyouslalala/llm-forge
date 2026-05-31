@@ -1,3 +1,4 @@
+import math
 import os
 from pathlib import Path
 
@@ -31,10 +32,11 @@ def sft_train(config_path: str = "configs/sft.yaml"):
         tokenizer_path = "./outputs/tokenizer/tokenizer.json"
     tokenizer = BPETokenizer.load(tokenizer_path)
 
-    model = GPTModel(GPTConfig())
+    gpt_config = GPTConfig.from_dict(model_cfg)
+    model = GPTModel(gpt_config)
     model_path = os.path.join(base_model_path, "model.pt")
     if os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path, map_location="cpu"))
+        model.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=True))
         logger.info(f"Loaded pretrained model from {model_path}")
 
     if model_cfg.get("use_lora", False):
@@ -72,7 +74,7 @@ def sft_train(config_path: str = "configs/sft.yaml"):
         weight_decay=train_cfg["weight_decay"],
     )
 
-    total_steps = len(train_loader) * train_cfg["num_epochs"] // train_cfg["gradient_accumulation_steps"]
+    total_steps = math.ceil(len(train_loader) * train_cfg["num_epochs"] / train_cfg["gradient_accumulation_steps"])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=total_steps, eta_min=train_cfg["learning_rate"] * 0.1
     )

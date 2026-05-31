@@ -70,14 +70,17 @@ class AgentMemory:
         return "\n".join(context_parts)
 
     def _simple_embed(self, text: str) -> np.ndarray:
-        import hashlib
-        h = hashlib.md5(text.encode()).hexdigest()
-        vec = np.array([int(h[i:i+2], 16) / 255.0 for i in range(0, min(len(h), self.embedding_dim * 2), 2)])
-        if len(vec) < self.embedding_dim:
-            vec = np.pad(vec, (0, self.embedding_dim - len(vec)))
-        else:
-            vec = vec[:self.embedding_dim]
-        return vec / (np.linalg.norm(vec) + 1e-8)
+        """TF-IDF-like fallback embedding using character trigram hashing."""
+        vec = np.zeros(self.embedding_dim, dtype=np.float32)
+        text_lower = text.lower().strip()
+        for i in range(len(text_lower) - 2):
+            trigram = text_lower[i:i+3]
+            h = hash(trigram) % self.embedding_dim
+            vec[h] += 1.0
+        norm = np.linalg.norm(vec)
+        if norm > 0:
+            vec /= norm
+        return vec
 
     def save(self, path: str):
         data = {

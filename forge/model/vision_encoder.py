@@ -11,6 +11,7 @@ class PatchEmbedding(nn.Module):
 
     def __init__(self, image_size: int = 224, patch_size: int = 16, in_channels: int = 3, d_model: int = 768):
         super().__init__()
+        assert image_size % patch_size == 0, f"image_size ({image_size}) must be divisible by patch_size ({patch_size})"
         self.image_size = image_size
         self.patch_size = patch_size
         self.num_patches = (image_size // patch_size) ** 2
